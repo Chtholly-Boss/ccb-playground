@@ -1,10 +1,5 @@
 #include "binding.cuh"
 
-/// cpu addition
-int add(int a, int b) { return a + b; }
-
-/// cuda tensor addition
-
 __global__ void add_kernel(float *out, const float *a, const float *b,
                            size_t size) {
   const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;

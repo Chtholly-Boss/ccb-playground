@@ -38,11 +38,8 @@ cmake --build . # or directly call `ninja`
 Then you will obtain a shared library file `ccb.cpython-<version>-<platform>.so` in the `build` directory, which can be directly imported in Python.
 
 ```py
-# in build/, run python REPL
 import ccb
 import torch
-ccb.add(1, 2)
-# 3
 a = torch.randn(4).cuda()
 b = torch.randn(4).cuda()
 c = torch.zeros(4).cuda()
