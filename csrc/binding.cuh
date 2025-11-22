@@ -8,3 +8,6 @@ namespace nb = nanobind;
 void sgemm(const nb::ndarray<float> &c, const nb::ndarray<float> &a,
            const nb::ndarray<float> &b, float alpha, float beta, int M, int N,
            int K);
+
+void sm90_ws_gemm(const nb::ndarray<float> &c, const nb::ndarray<float> &a,
+                  const nb::ndarray<float> &b, int M, int N, int K);
