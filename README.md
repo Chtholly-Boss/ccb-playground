@@ -39,7 +39,15 @@ Then you will obtain a shared library file `ccb.cpython-<version>-<platform>.so`
 
 ```py
 # in build/, run python REPL
->> import ccb
->> ccb.add(1, 2)
-3
+import ccb
+import torch
+ccb.add(1, 2)
+# 3
+a = torch.randn(4).cuda()
+b = torch.randn(4).cuda()
+c = torch.zeros(4).cuda()
+ccb.add_tensor(c, a, b)
+torch.testing.assert_close(c, a + b)
 ```
+
+To add new kernel, simply create a new `.cu` file in the `csrc/` directory, and add declaration in `csrc/binding.hpp` and binding code in `csrc/binding.cu`. Then rebuild the project.
