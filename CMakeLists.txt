@@ -24,5 +24,5 @@ execute_process(
 find_package(nanobind CONFIG REQUIRED)
 
 file(GLOB_RECURSE CUDA_SRC CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cu")
-
+include_directories(3rdparty/cutlass/include)
 nanobind_add_module(ccb ${CUDA_SRC})

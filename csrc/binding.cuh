@@ -5,5 +5,6 @@
 
 namespace nb = nanobind;
 
-void add_tensor(const nb::ndarray<> &out, const nb::ndarray<> &a,
-                const nb::ndarray<> &b);
+void sgemm_nn(const nb::ndarray<float> &c, const nb::ndarray<float> &a,
+              const nb::ndarray<float> &b, float alpha, float beta, int M,
+              int N, int K);
