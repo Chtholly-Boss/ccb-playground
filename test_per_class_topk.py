@@ -16,7 +16,7 @@ np.random.seed(43)
 DEBUG = False
 
 
-def test_per_class_sort(num_rois=8, num_classes=4, random_zeros=False, debug=False):
+def test_per_class_sort(num_rois=8, num_classes=4, topk=4, random_zeros=False, debug=False):
     if debug:
         print_title("Test Per Class Sort")
         print(f"num_rois: {num_rois}, num_classes: {num_classes}, random_zeros: {random_zeros}")
@@ -36,17 +36,30 @@ def test_per_class_sort(num_rois=8, num_classes=4, random_zeros=False, debug=Fal
         print(indices)
 
     sort_order = torch.argsort(scores, dim=1, descending=True)
-    scores_sorted = torch.gather(scores, 1, sort_order)
-    indices = torch.gather(indices, 1, sort_order)
+    scores_sorted = torch.gather(scores, 1, sort_order)[:, :topk]
+    indices_sorted = torch.gather(indices, 1, sort_order)[:, :topk]
     # torch.save(scores_sorted, f"{filename_prefix_}_golden_0.data")
-    # torch.save(indices, f"{filename_prefix_}_golden_1.data")
+    # torch.save(indices_sorted, f"{filename_prefix_}_golden_1.data")
+    from build import ccb
 
+    print(scores_sorted.shape)
+    ccb_scores_sorted = torch.zeros_like(scores_sorted)
+    ccb_indices_sorted = torch.zeros_like(indices_sorted)
+    ccb.per_class_topk(
+        ccb_scores_sorted,
+        ccb_indices_sorted,
+        scores,
+        indices,
+        num_rois,
+        num_classes,
+        topk,
+    )
     if debug:
         print_title("Sorted Scores")
         print(scores_sorted)
         print_title("Sorted Indices")
-        print(indices)
+        print(indices_sorted)
 
 
 if __name__ == "__main__":
-    test_per_class_sort(num_rois=8, num_classes=4, random_zeros=True, debug=DEBUG)
+    test_per_class_sort(num_rois=8, num_classes=4, topk=4, random_zeros=True, debug=DEBUG)

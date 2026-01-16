@@ -43,6 +43,19 @@ def test_permute_scores_and_filt(
         if class_idx == background_label_id or scores_perm[class_idx, roi_idx] < score_thresh:
             scores_perm[class_idx, roi_idx] = 0.0
             indices[i] = -1
+    from build import ccb
+
+    ccb_scores_perm = torch.zeros_like(scores_perm)
+    ccb_indices = torch.full_like(indices, -1)
+    ccb.permute_scores_and_filt(
+        ccb_scores_perm,
+        ccb_indices,
+        scores,
+        num_rois,
+        num_classes,
+        background_label_id,
+        score_thresh,
+    )
     if debug:
         print_title("Filtered Indices")
         print(indices.view(num_classes, num_rois))

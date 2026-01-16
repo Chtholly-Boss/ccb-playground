@@ -43,6 +43,7 @@ def test_gather_outputs(topk, keep_topk, num_rois, num_classes, return_idx, debu
             class_idx = idx // num_rois
             decoded_bboxes[i, :] = bbox_decode[roi_idx, class_idx, :]
         print(decoded_bboxes)
+
     nmsed_boxes = torch.zeros((keep_topk, 5)).float()  # (xmin, ymin, xmax, ymax, score)
     nmsed_labels = torch.zeros((keep_topk,)).int()
     for i in range(keep_topk):
@@ -55,8 +56,28 @@ def test_gather_outputs(topk, keep_topk, num_rois, num_classes, return_idx, debu
 
     # torch.save(nmsed_boxes, f"{filename_prefix_}_golden_0.data")
     if return_idx:
-        nmsed_indices = indices
+        nmsed_indices = indices[:keep_topk]
         # torch.save(nmsed_indices, f"{filename_prefix_}_golden_1.data")
+    from build import ccb
+
+    ccb_nmsed_boxes = torch.zeros_like(nmsed_boxes)
+    ccb_nmsed_labels = torch.zeros_like(nmsed_labels)
+    ccb_nmsed_indices = torch.zeros_like(indices)
+    ccb.gather_output(
+        ccb_nmsed_boxes,
+        ccb_nmsed_labels,
+        ccb_nmsed_indices,
+        bbox_delta,
+        rois,
+        im_info,
+        scores,
+        indices,
+        num_rois,
+        num_classes,
+        topk,
+        keep_topk,
+        return_idx,
+    )
     if debug:
         print_title("NMSed Boxes")
         print(nmsed_boxes)
