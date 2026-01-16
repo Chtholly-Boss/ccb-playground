@@ -20,10 +20,18 @@ To address this, we use [nanobind](https://nanobind.readthedocs.io/en/latest/) t
 We use `nanobind` for binding and `cmake` for building the Cuda C/C++ code. Please make sure you have them installed. If not, you can follow the instructions below: 
 
 ```sh
-pip install nanobind
+apt-get install python3.12-dev
+# cmake 4.0+ is recommended
+wget https://github.com/Kitware/CMake/releases/download/v4.2.1/cmake-4.2.1.tar.gz
+tar -xzvf cmake-4.2.1.tar.gz
+cd cmake-4.2.1
+./configure --parallel=$(nproc)
+make -j$(nproc) install 
 apt-get install cmake
+# apt-get install libssl-dev  # if you encounter SSL issues
 # ninja is optional but recommended for faster builds
 apt-get install ninja-build
+pip install nanobind
 ```
 
 You may also need to modify the `CMakeLists.txt` file to set the correct **CUDA architecture** and **Python Version** for your system. After that, you can build the Cuda C/C++ code using `cmake`:
@@ -31,7 +39,6 @@ You may also need to modify the `CMakeLists.txt` file to set the correct **CUDA 
 ```sh
 mkdir build
 cd build
-# apt-get install libssl-dev  # if you encounter SSL issues
 cmake -G Ninja ..
 cmake --build . # or directly call `ninja`
 ```
