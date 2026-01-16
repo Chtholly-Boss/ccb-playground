@@ -15,9 +15,27 @@ np.random.seed(43)
 DEBUG = False
 
 
-def get_bbox_tensors_and_decode(
-    num_rois, num_classes, random_intersect=False, intersect_ratio=0.3
-):
+def add_tensor(name, shape, dtype="float", layout="linear", mem_loc="ddr"):
+    return {
+        "name": name,
+        "shape": shape,
+        "dtype": dtype,
+        "layout": layout,
+        "mem_loc": mem_loc,
+    }
+
+
+def print_title(title):
+    print("\n" + "=" * 20 + f" {title} " + "=" * 20 + "\n")
+
+
+def get_roi_class_idx(index, num_rois, num_classes):
+    roi_idx = index // num_classes
+    class_idx = index % num_classes
+    return roi_idx, class_idx
+
+
+def get_bbox_tensors_and_decode(num_rois, num_classes, random_intersect=False, intersect_ratio=0.3):
     """
     Generate bbox tensors and decode them.
 
@@ -39,11 +57,9 @@ def get_bbox_tensors_and_decode(
         torch.min(rois[:, 1], rois[:, 3]),
         torch.max(rois[:, 1], rois[:, 3]),
     )
-
     # im_info: [height, width, scale], 基于 rois 的最大值动态生成
     max_coord = max(rois.max().item(), 1.0)
     im_info = torch.tensor([max_coord + 50.0, max_coord + 50.0, 1.0]).float()
-
     if random_intersect and num_rois >= 2:
         # 随机选择一些框作为"锚点框"，然后让其他一些框与之高度重叠
         # 通过修改 rois 和 bbox_delta 来实现
@@ -73,10 +89,7 @@ def get_bbox_tensors_and_decode(
             for c in range(num_classes):
                 # 添加小扰动使解码后的框高度重叠但不完全相同
                 delta_perturbation = (torch.rand(4) - 0.5) * 0.1  # 非常小的扰动
-                bbox_delta[follower_idx, c] = (
-                    bbox_delta[anchor_idx, c] + delta_perturbation
-                )
-
+                bbox_delta[follower_idx, c] = bbox_delta[anchor_idx, c] + delta_perturbation
     # scale rois according to im_info
     rois_scaled = rois / im_info[2]
 
@@ -98,18 +111,10 @@ def get_bbox_tensors_and_decode(
     offset_w = 0.5 * (pred_w - 1.0)
     offset_h = 0.5 * (pred_h - 1.0)
     bbox_decode = torch.zeros_like(bbox_delta)
-    bbox_decode[:, :, 0] = torch.clamp(
-        pred_ctr_x - offset_w, min=0.0, max=im_info[1].item() - 1.0
-    )
-    bbox_decode[:, :, 1] = torch.clamp(
-        pred_ctr_y - offset_h, min=0.0, max=im_info[0].item() - 1.0
-    )
-    bbox_decode[:, :, 2] = torch.clamp(
-        pred_ctr_x + offset_w, min=0.0, max=im_info[1].item() - 1.0
-    )
-    bbox_decode[:, :, 3] = torch.clamp(
-        pred_ctr_y + offset_h, min=0.0, max=im_info[0].item() - 1.0
-    )
+    bbox_decode[:, :, 0] = torch.clamp(pred_ctr_x - offset_w, min=0.0, max=im_info[1].item() - 1.0)
+    bbox_decode[:, :, 1] = torch.clamp(pred_ctr_y - offset_h, min=0.0, max=im_info[0].item() - 1.0)
+    bbox_decode[:, :, 2] = torch.clamp(pred_ctr_x + offset_w, min=0.0, max=im_info[1].item() - 1.0)
+    bbox_decode[:, :, 3] = torch.clamp(pred_ctr_y + offset_h, min=0.0, max=im_info[0].item() - 1.0)
     return bbox_delta, rois, im_info, bbox_decode
 
 
@@ -132,20 +137,6 @@ def compute_iou(box1: Tensor, box2: Tensor) -> float:
     return iou
 
 
-def add_tensor(name, shape, dtype="float", layout="linear", mem_loc="ddr"):
-    return {
-        "name": name,
-        "shape": shape,
-        "dtype": dtype,
-        "layout": layout,
-        "mem_loc": mem_loc,
-    }
-
-
-def print_title(title):
-    print("\n" + "=" * 20 + f" {title} " + "=" * 20 + "\n")
-
-
 def test_per_class_nms(
     num_rois,
     num_classes,
@@ -155,17 +146,14 @@ def test_per_class_nms(
 ):
     if debug:
         print_title("Test Per Class NMS")
-        print(
-            f"num_rois: {num_rois}, num_classes: {num_classes}, topk: {topk}, iou_threshold: {iou_threshold}"
-        )
-    bbox_delta, rois, im_info, bbox_decode = get_bbox_tensors_and_decode(
-        num_rois, num_classes, random_intersect=True, intersect_ratio=0.8
-    )
+        print(f"num_rois: {num_rois}, num_classes: {num_classes}, topk: {topk}, iou_threshold: {iou_threshold}")
+    bbox_delta, rois, im_info, bbox_decode = get_bbox_tensors_and_decode(num_rois, num_classes, random_intersect=True, intersect_ratio=0.8)
     # torch.save(bbox_delta, f"{filename_prefix_}_input_0.data")
     # torch.save(rois, f"{filename_prefix_}_input_1.data")
     # torch.save(im_info, f"{filename_prefix_}_input_2.data")
     scores = torch.rand((num_classes, num_rois)).float()
-    indices = torch.arange(num_classes * num_rois).view(num_classes, num_rois)
+    indices = torch.arange(num_classes * num_rois).to(torch.int32).view(num_classes, num_rois)
+
     sort_order = torch.argsort(scores, dim=1, descending=True)
     scores_sorted = torch.gather(scores, 1, sort_order)
     indices = torch.gather(indices, 1, sort_order)
@@ -180,12 +168,13 @@ def test_per_class_nms(
         print_title("Indices Before NMS")
         print(indices_unnmsed)
         print_title("Decoded BBoxes")
+        print(bbox_decode)
         topk_bboxes_decoded = torch.zeros((num_classes, topk, 4)).float()
         for c in range(num_classes):
             for i in range(topk):
-                roi_idx = indices_unnmsed[c, i].item() % num_rois
-                class_idx = indices_unnmsed[c, i].item() // num_rois
+                roi_idx, class_idx = get_roi_class_idx(indices_unnmsed[c, i].item(), num_rois, num_classes)
                 topk_bboxes_decoded[c, i, :] = bbox_decode[roi_idx, class_idx, :]
+        print_title("TopK Decoded BBoxes")
         print(topk_bboxes_decoded)
 
     nmsed_scores = scores_unnmsed.clone()
@@ -195,15 +184,15 @@ def test_per_class_nms(
         for i in range(topk):
             if not keep_flags[i]:
                 continue
-            ref_box_idx = indices_unnmsed[c, i].item() % num_rois
-            ref_class_idx = indices_unnmsed[c, i].item() // num_rois
-            ref_box = bbox_decode[ref_box_idx, ref_class_idx, :]
+            ref_roi_idx, ref_class_idx = get_roi_class_idx(indices_unnmsed[c, i].item(), num_rois, num_classes)
+            ref_box = bbox_decode[ref_roi_idx, ref_class_idx, :]
+
             for j in range(i + 1, topk):
                 if not keep_flags[j]:
                     continue
-                curr_box_idx = indices_unnmsed[c, j].item() % num_rois
-                curr_class_idx = indices_unnmsed[c, j].item() // num_rois
-                curr_box = bbox_decode[curr_box_idx, curr_class_idx, :]
+                curr_roi_idx, curr_class_idx = get_roi_class_idx(indices_unnmsed[c, j].item(), num_rois, num_classes)
+                curr_box = bbox_decode[curr_roi_idx, curr_class_idx, :]
+
                 iou = compute_iou(ref_box, curr_box)
                 if iou >= iou_threshold:
                     keep_flags[j] = False
@@ -222,7 +211,6 @@ def test_per_class_nms(
     ccb_nmsed_scores = scores_unnmsed.clone()
     ccb_nmsed_indices = indices_unnmsed.clone()
     from build import ccb
-
     ccb.per_class_nms(
         ccb_nmsed_scores,
         ccb_nmsed_indices,
@@ -236,34 +224,9 @@ def test_per_class_nms(
         topk,
         iou_threshold,
     )
-
-    config = {
-        "op_type": "PER_CLASS_NMS",
-        "input_tensors": [
-            add_tensor("input_0", [num_rois, num_classes, 4]),
-            add_tensor("input_1", [num_rois, 4]),
-            add_tensor("input_2", [3]),
-            add_tensor("input_3", [num_classes, topk]),
-            add_tensor("input_4", [num_classes, topk], dtype="int"),
-        ],
-        "output_tensors": [
-            add_tensor("output_0", [num_classes, topk]),
-            add_tensor("output_1", [num_classes, topk], dtype="int"),
-        ],
-        "evaluator": [
-            {
-                "type": "diff1",
-                "threshold": 0.003,
-            },
-        ],
-        "num_rois": num_rois,
-        "num_classes": num_classes,
-        "topk": topk,
-        "iou_threshold": iou_threshold,
-    }
+    torch.testing.assert_close(nmsed_scores, ccb_nmsed_scores, atol=1e-3, rtol=1e-3)
+    torch.testing.assert_close(nmsed_indices, ccb_nmsed_indices, atol=1e-3, rtol=1e-3)
 
 
 if __name__ == "__main__":
-    test_per_class_nms(
-        num_rois=16, num_classes=1, topk=8, iou_threshold=0.6, debug=DEBUG
-    )
+    test_per_class_nms(num_rois=512, num_classes=32, topk=63, iou_threshold=0.5, debug=DEBUG)

@@ -31,6 +31,7 @@ You may also need to modify the `CMakeLists.txt` file to set the correct **CUDA 
 ```sh
 mkdir build
 cd build
+# apt-get install libssl-dev  # if you encounter SSL issues
 cmake -G Ninja ..
 cmake --build . # or directly call `ninja`
 ```
